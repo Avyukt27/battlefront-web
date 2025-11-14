@@ -1,12 +1,28 @@
 import uuid
+from typing import TypedDict
 
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
+
+class Pieces(TypedDict):
+    R: str
+    G: str
+    B: str
+
+
+class GameState(TypedDict):
+    players: list[str]
+    status: str
+    turn: str
+    moves: list[str]
+    pieces: Pieces
+
+
 app = Flask(__name__)
 _ = CORS(app)
 
-games: dict[str, dict[str, list[str]]] = {}
+games: dict[str, GameState] = {}
 
 
 @app.route("/api/games", methods=["GET"])
@@ -20,8 +36,10 @@ def create_game() -> Response:
 
     games[game_id] = {
         "players": [],
-        "state": ["waiting"],
+        "status": "waiting",
+        "turn": "R",
         "moves": [],
+        "pieces": {"R": "", "G": "", "B": ""},
     }
 
     return jsonify({"gameId": game_id, "game": games[game_id]})
