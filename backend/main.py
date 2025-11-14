@@ -1,12 +1,12 @@
 import uuid
 
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
 app = Flask(__name__)
 _ = CORS(app)
 
-games: dict[str, dict[str, str | list[str]]] = {}
+games: dict[str, dict[str, list[str]]] = {}
 
 
 @app.route("/api/games", methods=["GET"])
@@ -20,11 +20,33 @@ def create_game() -> Response:
 
     games[game_id] = {
         "players": [],
-        "state": "waiting",
+        "state": ["waiting"],
         "moves": [],
     }
 
     return jsonify({"gameId": game_id, "game": games[game_id]})
+
+
+@app.route("/api/join_game", methods=["POST"])
+def join_game() -> tuple[Response, int]:
+    data: dict[str, str] | None = request.json
+
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    game_id = data.get("gameId")
+    player_name = data.get("player")
+
+    if game_id not in games:
+        return jsonify({"error": "Game not found"}), 404
+
+    if player_name is None:
+        return jsonify({"error": "Invalid player name"}), 400
+
+    if player_name not in games[game_id]["players"]:
+        games[game_id]["players"].append(player_name)
+
+    return jsonify({"game_id": game_id, "players": games[game_id]["players"]}), 200
 
 
 if __name__ == "__main__":
