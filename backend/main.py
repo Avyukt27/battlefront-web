@@ -56,8 +56,8 @@ def leave_game() -> tuple[Response, int]:
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    game_id = data.get("gameId")
-    player_name = data.get("player")
+    game_id: str | None = data.get("gameId")
+    player_name: str | None = data.get("player")
 
     if game_id not in games:
         return jsonify({"error": "Game not found"}), 404
