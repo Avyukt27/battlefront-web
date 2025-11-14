@@ -49,5 +49,27 @@ def join_game() -> tuple[Response, int]:
     return jsonify({"game_id": game_id, "players": games[game_id]["players"]}), 200
 
 
+@app.route("/api/leave_game", methods=["POST"])
+def leave_game() -> tuple[Response, int]:
+    data: dict[str, str] | None = request.json
+
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    game_id = data.get("gameId")
+    player_name = data.get("player")
+
+    if game_id not in games:
+        return jsonify({"error": "Game not found"}), 404
+
+    if player_name is None:
+        return jsonify({"error": "Invalid player name"}), 400
+
+    if player_name in games[game_id]["players"]:
+        games[game_id]["players"].remove(player_name)
+
+    return jsonify({"game_id": game_id, "players": games[game_id]["players"]}), 200
+
+
 if __name__ == "__main__":
     app.run(debug=True)
