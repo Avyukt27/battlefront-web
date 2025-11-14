@@ -118,10 +118,14 @@ def make_move() -> tuple[Response, int]:
     if move is None:
         return jsonify({"error": "Invalid move"}), 400
 
-    if player_name == games[game_id]["turn"]:
+    players: list[str] = games[game_id]["players"]
+
+    current_player: str = players[["R", "G", "B"].index(games[game_id]["turn"])]
+
+    if player_name == current_player:
         games[game_id]["moves"].append(move)
-        games[game_id]["turn"] = games[game_id]["players"][
-            (games[game_id]["players"].index(games[game_id]["turn"]) + 1) % 3
+        games[game_id]["turn"] = ["R", "G", "B"][
+            (players.index(current_player) + 1) % len(players)
         ]
 
     return jsonify(
