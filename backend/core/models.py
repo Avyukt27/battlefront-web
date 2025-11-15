@@ -12,4 +12,5 @@ class GameState(TypedDict):
     status: str
     turn: str
     moves: list[str]
+    moves_left: int
     pieces: Pieces
