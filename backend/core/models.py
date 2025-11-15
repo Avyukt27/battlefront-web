@@ -1,10 +1,17 @@
 from typing import TypedDict
 
 
+class Piece(TypedDict):
+    position: str
+    has_ability: bool
+    ability_cooldown: int | None
+    piece_class: str
+
+
 class Pieces(TypedDict):
-    R: str
-    G: str
-    B: str
+    red: Piece
+    green: Piece
+    blue: Piece
 
 
 class GameState(TypedDict):

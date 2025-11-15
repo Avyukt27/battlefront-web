@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
+from core.logic import move_is_valid
+
 if TYPE_CHECKING:
     from core.models import GameState
 
@@ -27,7 +29,26 @@ def create_game() -> tuple[Response, int]:
         "turn": "",
         "moves": [],
         "moves_left": None,
-        "pieces": {"R": "", "G": "", "B": ""},
+        "pieces": {
+            "red": {
+                "position": "",
+                "has_ability": False,
+                "ability_cooldown": None,
+                "piece_class": "",
+            },
+            "green": {
+                "position": "",
+                "has_ability": False,
+                "ability_cooldown": None,
+                "piece_class": "",
+            },
+            "blue": {
+                "position": "",
+                "has_ability": False,
+                "ability_cooldown": None,
+                "piece_class": "",
+            },
+        },
     }
     return jsonify({"gameId": game_id, "game": games[game_id]}), 201
 
@@ -55,6 +76,9 @@ def join_game(game_id: str) -> tuple[Response, int]:
         if len(current_game["players"]) == 3:
             current_game["status"] = "ongoing"
             current_game["turn"] = current_game["players"][0]
+            current_game["pieces"]["red"]["position"] = "a8"
+            current_game["pieces"]["green"]["position"] = "a1"
+            current_game["pieces"]["blue"]["position"] = "h1"
 
     return jsonify(
         {
@@ -91,9 +115,12 @@ def make_move(game_id: str) -> tuple[Response, int]:
 
     players: list[str] = current_game["players"]
 
-    if player_name == current_game["turn"]:
+    if player_name == current_game["turn"] and move_is_valid(
+        move, current_game["turn"], players
+    ):
         current_game["moves"].append(move)
         current_game["moves_left"] -= 1
+
         if current_game["moves_left"] <= 0:
             current_game["turn"] = current_game["players"][
                 (players.index(current_game["turn"]) + 1) % len(players)
@@ -118,7 +145,6 @@ def set_moves(game_id: str) -> tuple[Response, int]:
         return jsonify({"error": "Invalid JSON"}), 400
 
     num_moves: str | None = data.get("numMoves")
-
     if not num_moves:
         return jsonify({"error": "'numMoves' field is missing"}), 400
     if game_id not in games:
