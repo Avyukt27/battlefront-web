@@ -14,35 +14,34 @@ games: dict[str, GameState] = {}
 
 
 @app.route("/api/games", methods=["GET"])
-def get_games() -> Response:
-    return jsonify(games)
+def get_games() -> tuple[Response, int]:
+    return jsonify(games), 200
 
 
 @app.route("/api/create_game", methods=["POST"])
-def create_game() -> Response:
+def create_game() -> tuple[Response, int]:
     game_id: str = str(uuid.uuid4())
     games[game_id] = {
         "players": [],
         "status": "waiting",
         "turn": "",
         "moves": [],
-        "moves_left": 0,
+        "moves_left": None,
         "pieces": {"R": "", "G": "", "B": ""},
     }
-    return jsonify({"gameId": game_id, "game": games[game_id]})
+    return jsonify({"gameId": game_id, "game": games[game_id]}), 201
 
 
-@app.route("/api/join_game", methods=["POST"])
-def join_game() -> tuple[Response, int]:
+@app.route("/api/join_game/<string:game_id>", methods=["POST"])
+def join_game(game_id: str) -> tuple[Response, int]:
     data: dict[str, str] | None = request.json
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    game_id = data.get("gameId")
     player_name = data.get("player")
 
-    if game_id is None or player_name is None:
-        return jsonify({"error": "Invalid JSON"}), 400
+    if not player_name:
+        return jsonify({"error": "'player' field is missing"}), 400
     if game_id not in games:
         return jsonify({"error": "Game not found"}), 404
 
@@ -66,26 +65,28 @@ def join_game() -> tuple[Response, int]:
     ), 200
 
 
-@app.route("/api/move", methods=["POST"])
-def make_move() -> tuple[Response, int]:
+@app.route("/api/move/<string:game_id>", methods=["POST"])
+def make_move(game_id: str) -> tuple[Response, int]:
     data: dict[str, str] | None = request.json
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    game_id: str | None = data.get("gameId")
     player_name: str | None = data.get("player")
     move: str | None = data.get("move")
 
-    if game_id is None or player_name is None or move is None:
-        return jsonify({"error": "Invalid JSON"}), 400
+    if not move:
+        return jsonify({"error": "'move' field is missing"}), 400
     if game_id not in games:
         return jsonify({"error": "Game not found"}), 404
 
     current_game: GameState = games[game_id]
 
+    if not current_game["moves_left"]:
+        return jsonify({"error": "Moves not set"}), 400
+
     if current_game["status"] != "ongoing":
         return jsonify({"error": "Game has not begun"}), 403
-    if player_name not in current_game["players"]:
+    if not player_name or player_name not in current_game["players"]:
         return jsonify({"error": "Invalid player name"}), 400
 
     players: list[str] = current_game["players"]
@@ -110,21 +111,20 @@ def make_move() -> tuple[Response, int]:
     ), 200
 
 
-@app.route("/api/set_moves", methods=["POST"])
-def set_moves() -> tuple[Response, int]:
+@app.route("/api/set_moves/<string:game_id>", methods=["POST"])
+def set_moves(game_id: str) -> tuple[Response, int]:
     data: dict[str, str] | None = request.json
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    game_id: str | None = data.get("gameId")
     num_moves: str | None = data.get("numMoves")
 
-    if game_id is None or num_moves is None:
-        return jsonify({"error": "Invalid JSON"}), 400
+    if not num_moves:
+        return jsonify({"error": "'numMoves' field is missing"}), 400
     if game_id not in games:
         return jsonify({"error": "Game not found"}), 404
     if not num_moves.isdigit():
-        return jsonify({"error": "Invalid JSON"}), 400
+        return jsonify({"error": "numMoves must be integer"}), 400
 
     moves: int = int(num_moves)
     if moves <= 0:
