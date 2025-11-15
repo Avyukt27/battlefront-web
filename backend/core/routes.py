@@ -92,6 +92,9 @@ def make_move() -> tuple[Response, int]:
 
     current_game: GameState = games[game_id]
 
+    if current_game["status"] != "ongoing":
+        return jsonify({"error": "Game has not begun"}), 403
+
     if player_name is None or player_name not in current_game["players"]:
         return jsonify({"error": "Invalid player name"}), 400
 
@@ -118,3 +121,30 @@ def make_move() -> tuple[Response, int]:
             "movesLeft": current_game["moves_left"],
         }
     ), 200
+
+
+@app.route("/api/set_moves", methods=["POST"])
+def set_moves() -> tuple[Response, int]:
+    data: dict[str, str] | None = request.json
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    game_id: str | None = data.get("gameId")
+    num_moves: str | None = data.get("numMoves")
+
+    if game_id is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+    if game_id not in games:
+        return jsonify({"error": "Game not found"}), 404
+    if num_moves is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+    if not num_moves.isdigit():
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    moves: int = int(num_moves)
+    if moves <= 0:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    current_game: GameState = games[game_id]
+    current_game["moves_left"] = moves
+    return jsonify({"gameId": game_id, "movesLeft": moves}), 200
