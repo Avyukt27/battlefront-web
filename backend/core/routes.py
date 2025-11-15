@@ -115,9 +115,10 @@ def make_move(game_id: str) -> tuple[Response, int]:
 
     players: list[str] = current_game["players"]
 
-    if player_name == current_game["turn"] and move_is_valid(
-        move, current_game["turn"], players
-    ):
+    if not move_is_valid(move, current_game["turn"], players):
+        return jsonify({"error": "Invalid move"}), 403
+
+    if player_name == current_game["turn"]:
         current_game["moves"].append(move)
         current_game["moves_left"] -= 1
 
