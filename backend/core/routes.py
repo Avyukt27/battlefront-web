@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
-from core.logic import move_is_valid, set_moves_for_game
+from core.logic import move_is_valid
 
 if TYPE_CHECKING:
     from core.models import GameState, Player
 
 COLOURS: list[str] = ["r", "g", "b"]
+MAX_MOVES: int = 6
 
 app = Flask(__name__)
 _ = CORS(app)
@@ -93,6 +94,7 @@ def join_game(game_id: str) -> tuple[Response, int]:
         game["pieces"]["r"]["position"] = "a8"
         game["pieces"]["g"]["position"] = "a1"
         game["pieces"]["b"]["position"] = "h1"
+        game["moves_left"] = randint(1, MAX_MOVES)
 
     return jsonify(
         {
@@ -114,8 +116,6 @@ def make_move(game_id: str) -> tuple[Response, int]:
 
     if not move:
         return jsonify({"error": "'move' field is missing"}), 400
-    if not player_name:
-        return jsonify({"error": "'player' field is missing"}), 400
 
     if game_id not in games:
         return jsonify({"error": "Game not found"}), 404
@@ -150,7 +150,7 @@ def make_move(game_id: str) -> tuple[Response, int]:
         ]
 
         game["turn"] = next_player
-        set_moves_for_game(game, randint(1, 6))
+        game["moves_left"] = randint(1, MAX_MOVES)
 
     return jsonify(
         {
