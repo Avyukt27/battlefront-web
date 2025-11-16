@@ -9,13 +9,18 @@ class Piece(TypedDict):
 
 
 class Pieces(TypedDict):
-    red: Piece
-    green: Piece
-    blue: Piece
+    r: Piece
+    g: Piece
+    b: Piece
+
+
+class Player(TypedDict):
+    name: str
+    colour: str
 
 
 class GameState(TypedDict):
-    players: list[str]
+    players: list[Player]
     status: str
     turn: str
     moves: list[str]

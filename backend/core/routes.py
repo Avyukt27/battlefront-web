@@ -5,9 +5,12 @@ from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
 from core.logic import move_is_valid
+from core.models import Player
 
 if TYPE_CHECKING:
     from core.models import GameState
+
+COLOURS: list[str] = ["r", "g", "b"]
 
 app = Flask(__name__)
 _ = CORS(app)
@@ -20,6 +23,13 @@ def get_games() -> tuple[Response, int]:
     return jsonify(games), 200
 
 
+@app.route("/api/game/<string:game_id>", methods=["GET"])
+def get_game(game_id: str) -> tuple[Response, int]:
+    if game_id not in games:
+        return jsonify({"error": "Game not found"}), 404
+    return jsonify(games[game_id]), 200
+
+
 @app.route("/api/create_game", methods=["POST"])
 def create_game() -> tuple[Response, int]:
     game_id: str = str(uuid.uuid4())
@@ -30,19 +40,19 @@ def create_game() -> tuple[Response, int]:
         "moves": [],
         "moves_left": None,
         "pieces": {
-            "red": {
+            "r": {
                 "position": "",
                 "has_ability": False,
                 "ability_cooldown": None,
                 "piece_class": "",
             },
-            "green": {
+            "g": {
                 "position": "",
                 "has_ability": False,
                 "ability_cooldown": None,
                 "piece_class": "",
             },
-            "blue": {
+            "b": {
                 "position": "",
                 "has_ability": False,
                 "ability_cooldown": None,
@@ -56,35 +66,39 @@ def create_game() -> tuple[Response, int]:
 @app.route("/api/join_game/<string:game_id>", methods=["POST"])
 def join_game(game_id: str) -> tuple[Response, int]:
     data: dict[str, str] | None = request.json
-    if data is None:
+    if not data:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    player_name = data.get("player")
+    player_name = data["player"]
 
     if not player_name:
         return jsonify({"error": "'player' field is missing"}), 400
     if game_id not in games:
         return jsonify({"error": "Game not found"}), 404
 
-    current_game: GameState = games[game_id]
+    game: GameState = games[game_id]
 
-    if len(current_game["players"]) == 3:
+    if len(game["players"]) == 3:
         return jsonify({"error": "Game full"}), 403
+    if any(player["name"] == player_name for player in game["players"]):
+        return jsonify({"error": "Player already joined"}), 403
 
-    if player_name not in current_game["players"]:
-        current_game["players"].append(player_name)
-        if len(current_game["players"]) == 3:
-            current_game["status"] = "ongoing"
-            current_game["turn"] = current_game["players"][0]
-            current_game["pieces"]["red"]["position"] = "a8"
-            current_game["pieces"]["green"]["position"] = "a1"
-            current_game["pieces"]["blue"]["position"] = "h1"
+    colour: str = COLOURS[len(game["players"])]
+
+    game["players"].append({"name": player_name, "colour": colour})
+
+    if len(game["players"]) == 3:
+        game["status"] = "ongoing"
+        game["turn"] = game["players"][0]["name"]
+        game["pieces"]["r"]["position"] = "a8"
+        game["pieces"]["g"]["position"] = "a1"
+        game["pieces"]["b"]["position"] = "h1"
 
     return jsonify(
         {
             "gameId": game_id,
-            "players": current_game["players"],
-            "status": current_game["status"],
+            "players": game["players"],
+            "status": game["status"],
         }
     ), 200
 
@@ -92,7 +106,7 @@ def join_game(game_id: str) -> tuple[Response, int]:
 @app.route("/api/move/<string:game_id>", methods=["POST"])
 def make_move(game_id: str) -> tuple[Response, int]:
     data: dict[str, str] | None = request.json
-    if data is None:
+    if not data:
         return jsonify({"error": "Invalid JSON"}), 400
 
     player_name: str | None = data.get("player")
@@ -100,41 +114,46 @@ def make_move(game_id: str) -> tuple[Response, int]:
 
     if not move:
         return jsonify({"error": "'move' field is missing"}), 400
+    if not player_name:
+        return jsonify({"error": "'player' field is missing"}), 400
+
     if game_id not in games:
         return jsonify({"error": "Game not found"}), 404
 
-    current_game: GameState = games[game_id]
+    game: GameState = games[game_id]
 
-    if not current_game["moves_left"]:
+    if game["status"] != "ongoing":
+        return jsonify({"error": "Game has not begun"}), 403
+    if not game["moves_left"]:
         return jsonify({"error": "Moves not set"}), 400
 
-    if current_game["status"] != "ongoing":
-        return jsonify({"error": "Game has not begun"}), 403
-    if not player_name or player_name not in current_game["players"]:
+    player: Player | None = next(
+        (p for p in game["players"] if p["name"] == player_name), None
+    )
+    if not player:
         return jsonify({"error": "Invalid player name"}), 400
 
-    players: list[str] = current_game["players"]
-
-    if not move_is_valid(move, current_game["turn"], players):
+    if not move_is_valid(move, game["turn"], players):
         return jsonify({"error": "Invalid move"}), 403
 
-    if player_name == current_game["turn"]:
-        current_game["moves"].append(move)
-        current_game["moves_left"] -= 1
+    if player_name == game["turn"]:
+        game["moves"].append(move)
+        game["pieces"][current_colour]["position"] = move
+        game["moves_left"] -= 1
 
-        if current_game["moves_left"] <= 0:
-            current_game["turn"] = current_game["players"][
-                (players.index(current_game["turn"]) + 1) % len(players)
+        if game["moves_left"] <= 0:
+            game["turn"] = game["players"][
+                (players.index(game["turn"]) + 1) % len(players)
             ]
-            current_game["moves_left"] = 6
+            game["moves_left"] = 6
 
     return jsonify(
         {
             "gameId": game_id,
             "player": player_name,
-            "nextPlayer": current_game["turn"],
-            "moves": current_game["moves"],
-            "movesLeft": current_game["moves_left"],
+            "nextPlayer": game["turn"],
+            "moves": game["moves"],
+            "movesLeft": game["moves_left"],
         }
     ), 200
 
@@ -160,3 +179,11 @@ def set_moves(game_id: str) -> tuple[Response, int]:
     current_game: GameState = games[game_id]
     current_game["moves_left"] = moves
     return jsonify({"gameId": game_id, "movesLeft": moves}), 200
+
+
+@app.route("/api/delete_game/<string:game_id>", methods=["DELETE"])
+def delete_game(game_id: str) -> tuple[Response, int]:
+    if game_id not in games:
+        return jsonify({"error": "Game not found"}), 404
+    del games[game_id]
+    return jsonify(games), 200
