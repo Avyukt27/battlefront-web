@@ -1,8 +1,23 @@
-def move_is_valid(move: str, turn: str, players: list[str]) -> bool:
-    split_move: list[str] = list(move)
-    current_colour: str = ["r", "g", "b"][players.index(turn)]
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.models import GameState
+
+
+def move_is_valid(move: str) -> bool:
+    if len(move) != 3:
+        return False
+
+    colour = move[0]
+    file_letter = move[1]
+    rank_number = move[2]
+
     return (
-        split_move[0] == current_colour
-        and split_move[1] in ["a", "b", "c", "d", "e", "f", "g", "h"]
-        and split_move[2] in ["1", "2", "3", "4", "5", "6", "7", "8"]
+        colour in ("r", "g", "b")
+        and file_letter in "abcdefgh"
+        and rank_number in "12345678"
     )
+
+
+def set_moves_for_game(game: GameState, moves: int) -> None:
+    game["moves_left"] = moves

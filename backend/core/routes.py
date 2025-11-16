@@ -1,14 +1,14 @@
 import uuid
+from random import randint
 from typing import TYPE_CHECKING
 
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
-from core.logic import move_is_valid
-from core.models import Player
+from core.logic import move_is_valid, set_moves_for_game
 
 if TYPE_CHECKING:
-    from core.models import GameState
+    from core.models import GameState, Player
 
 COLOURS: list[str] = ["r", "g", "b"]
 
@@ -132,20 +132,25 @@ def make_move(game_id: str) -> tuple[Response, int]:
     )
     if not player:
         return jsonify({"error": "Invalid player name"}), 400
-
-    if not move_is_valid(move, game["turn"], players):
+    if game["turn"] != player_name:
+        return jsonify({"error": "Not your turn"}), 403
+    if not move_is_valid(move):
         return jsonify({"error": "Invalid move"}), 403
 
-    if player_name == game["turn"]:
-        game["moves"].append(move)
-        game["pieces"][current_colour]["position"] = move
-        game["moves_left"] -= 1
+    game["moves"].append(move)
+    game["pieces"][player["colour"]]["position"] = move
+    game["moves_left"] -= 1
 
-        if game["moves_left"] <= 0:
-            game["turn"] = game["players"][
-                (players.index(game["turn"]) + 1) % len(players)
-            ]
-            game["moves_left"] = 6
+    if game["moves_left"] <= 0:
+        current_index: int = next(
+            i for i, p in enumerate(game["players"]) if p["name"] == player_name
+        )
+        next_player = game["players"][(current_index + 1) % len(game["players"])][
+            "name"
+        ]
+
+        game["turn"] = next_player
+        set_moves_for_game(game, randint(1, 6))
 
     return jsonify(
         {
@@ -172,13 +177,8 @@ def set_moves(game_id: str) -> tuple[Response, int]:
     if not num_moves.isdigit():
         return jsonify({"error": "numMoves must be integer"}), 400
 
-    moves: int = int(num_moves)
-    if moves <= 0:
-        return jsonify({"error": "Invalid JSON"}), 400
-
-    current_game: GameState = games[game_id]
-    current_game["moves_left"] = moves
-    return jsonify({"gameId": game_id, "movesLeft": moves}), 200
+    set_moves_for_game(games[game_id], int(num_moves))
+    return jsonify({"gameId": game_id, "movesLeft": num_moves}), 200
 
 
 @app.route("/api/delete_game/<string:game_id>", methods=["DELETE"])
