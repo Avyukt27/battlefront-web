@@ -163,24 +163,6 @@ def make_move(game_id: str) -> tuple[Response, int]:
     ), 200
 
 
-@app.route("/api/set_moves/<string:game_id>", methods=["POST"])
-def set_moves(game_id: str) -> tuple[Response, int]:
-    data: dict[str, str] | None = request.json
-    if data is None:
-        return jsonify({"error": "Invalid JSON"}), 400
-
-    num_moves: str | None = data.get("numMoves")
-    if not num_moves:
-        return jsonify({"error": "'numMoves' field is missing"}), 400
-    if game_id not in games:
-        return jsonify({"error": "Game not found"}), 404
-    if not num_moves.isdigit():
-        return jsonify({"error": "numMoves must be integer"}), 400
-
-    set_moves_for_game(games[game_id], int(num_moves))
-    return jsonify({"gameId": game_id, "movesLeft": num_moves}), 200
-
-
 @app.route("/api/delete_game/<string:game_id>", methods=["DELETE"])
 def delete_game(game_id: str) -> tuple[Response, int]:
     if game_id not in games:
