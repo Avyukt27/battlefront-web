@@ -2,19 +2,14 @@ import uuid
 from random import randint
 from typing import TYPE_CHECKING
 
-from flask import Flask, Response, jsonify, request
-from flask_cors import CORS
+from flask import Response, jsonify, request
 
+from core.config import COLOURS, MAX_MOVES, app
 from core.logic import move_is_valid
 
 if TYPE_CHECKING:
     from core.models import GameState, Player
 
-COLOURS: list[str] = ["r", "g", "b"]
-MAX_MOVES: int = 6
-
-app = Flask(__name__)
-_ = CORS(app)
 
 games: dict[str, GameState] = {}
 
